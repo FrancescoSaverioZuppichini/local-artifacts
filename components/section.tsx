@@ -1,8 +1,9 @@
 import { ChevronRight } from "lucide-react"
-import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
+import { type ReactNode, useRef } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Comment } from "@/shell/comment"
+import { openSide, useVideos } from "@/shell/side-by-side"
 import { countNotes, registry, SectionCtx, setOpen, useReview, useStore } from "@/shell/state"
 import type { SectionProps } from "@/types"
 import { Badges } from "./badge"
@@ -24,15 +25,8 @@ export function Section({
 	const notes = useStore((s) => countNotes(s.feedback, id))
 	const note = useReview(id)?.note?.trim()
 	const ref = useRef<HTMLElement>(null)
-	const [videos, setVideos] = useState<string[]>([])
+	const videos = useVideos(ref)
 	registry.set(id, { id, kind: "section", title, date, badges, open })
-
-	useLayoutEffect(() => {
-		const found = [...ref.current!.querySelectorAll<HTMLElement>("[data-card][data-video]")].map(
-			(el) => el.id,
-		)
-		if (found.join() !== videos.join()) setVideos(found)
-	})
 
 	// [Agent] The note under the title is a preview; a click opens the section and focuses its note box.
 	function editNote(e: React.MouseEvent) {
@@ -46,7 +40,7 @@ export function Section({
 	}
 
 	return (
-		<SectionCtx.Provider value={{ id, title }}>
+		<SectionCtx.Provider value={{ id, title, videos: videos.length }}>
 			<section ref={ref} id={id} data-section="" className="scroll-mt-6 border-b py-3">
 				{/* [Agent] The whole header folds on click; the chevron is the keyboard-reachable toggle. */}
 				<div
@@ -76,7 +70,7 @@ export function Section({
 									size="xs"
 									onClick={(e) => {
 										e.stopPropagation()
-										useStore.setState({ side: { ids: videos, title } })
+										openSide(ref.current!, title)
 									}}
 								>
 									▶ Side by side · {videos.length} videos

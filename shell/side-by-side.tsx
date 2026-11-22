@@ -1,55 +1,100 @@
-import { useEffect, useState } from "react"
+import { type RefObject, useEffect, useLayoutEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Controls, fullScreen, select } from "./player"
-import { type Entry, fileUrl, registry, useStore } from "./state"
+import { fileUrl, type Group, registry, type Side, useStore } from "./state"
+import { MAX, name, VideoPicker } from "./video-picker"
 
-const label = (item: Entry) => (item.title ?? item.id).slice(0, 40)
+const START = 4
+const CAPTION = 26
 
-// [Agent] Every video of one section in a full-screen row on one clock, so versions of the same clip can be
-// audited frame against frame. Unticking hides a column; the sound pick decides the clock, while the on-screen
-// order stays the section's.
-function Row({ ids, title }: { ids: string[]; title: string }) {
-	const items = ids.map((id) => registry.get(id)!)
-	const [shown, setShown] = useState(ids)
-	const [voice, setVoice] = useState(ids[0])
+// [Agent] The video cards under an element, read from the DOM after each render: the probe decides what is a
+// video, and MDX children are opaque.
+export function useVideos(ref: RefObject<HTMLElement | null>) {
+	const [ids, setIds] = useState<string[]>([])
+	useLayoutEffect(() => {
+		const found = [...ref.current!.querySelectorAll<HTMLElement>("[data-card][data-video]")].map(
+			(el) => el.id,
+		)
+		if (found.join() !== ids.join()) setIds(found)
+	})
+	return ids
+}
+
+// [Agent] Groups are read from the page when the player opens, one per gallery in page order, so a page edit
+// while it is open cannot pull columns away. With no start, a small section shows every video and a big one
+// its first gallery: a 150-video section must not open as 150 columns.
+export function openSide(root: HTMLElement, title: string, start?: string[]) {
+	const groups = new Map<Element | null, Group>()
+	for (const card of root.querySelectorAll<HTMLElement>("[data-card][data-video]")) {
+		const gallery = card.closest<HTMLElement>("[data-gallery]")
+		if (!groups.has(gallery)) groups.set(gallery, { title: gallery?.dataset.gallery || "Videos", ids: [] })
+		groups.get(gallery)!.ids.push(card.id)
+	}
+	const list = [...groups.values()]
+	const all = list.flatMap((g) => g.ids)
+	const first = Math.min(START, Math.max(2, list[0].ids.length))
+	const shown = start ?? all.slice(0, all.length <= START ? START : first)
+	useStore.setState({ side: { title, groups: list, shown: shown.slice(0, MAX) } })
+}
+
+// [Agent] Starts from one row, the natural way to compare, and wraps into more rows only when that makes every
+// video clearly bigger (15 %): tall clips stay in a row, wide ones and narrow windows stack. Rows are filled
+// evenly, so 6 videos make 3 + 3, not 4 + 2.
+function fit(n: number, width: number, height: number, ratio: number) {
+	let best = n
+	let size = 0
+	for (let rows = 1; rows <= n; rows++) {
+		const cols = Math.ceil(n / rows)
+		const fits = Math.min(width / cols, (height / rows - CAPTION) * ratio)
+		if (fits > size * 1.15) [best, size] = [cols, fits]
+	}
+	return best
+}
+
+// [Agent] The picked videos on one clock, so versions of the same clip can be audited frame against frame.
+// Columns keep page order, so the baseline stays first; the sound pick decides the clock.
+function Row({ title, groups, shown: start }: Side) {
+	const [shown, setShown] = useState(start)
+	const [pick, setPick] = useState(start[0])
 	const [videos, setVideos] = useState<HTMLVideoElement[]>([])
-	// [Agent] The dialog portal mounts its content a render late, so the row is kept in state, not a ref.
-	const [row, setRow] = useState<HTMLDivElement | null>(null)
-	const columns = items.filter((item) => shown.includes(item.id))
+	// [Agent] The dialog portal mounts its content a render late, so the stage is kept in state, not a ref.
+	const [stage, setStage] = useState<HTMLDivElement | null>(null)
+	const [size, setSize] = useState({ width: 1, height: 1 })
+	const gallery = new Map(groups.flatMap((g) => g.ids.map((id) => [id, g.title])))
+	const columns = groups.flatMap((g) => g.ids).filter((id) => shown.includes(id))
+	const voice = shown.includes(pick) ? pick : columns[0]
+	const mixed = new Set(columns.map((id) => gallery.get(id))).size > 1
+	const probe = useStore((s) => s.media[registry.get(columns[0])!.src!])
+	const cols = fit(columns.length, size.width, size.height, probe ? probe.w / probe.h : 9 / 16)
 
 	useEffect(() => {
-		const all = [...(row?.querySelectorAll("video") ?? [])]
-		const clock = all[columns.findIndex((item) => item.id === voice)] ?? all[0]
-		setVideos(clock ? [clock, ...all.filter((v) => v !== clock)] : [])
-	}, [row, shown, voice])
+		if (!stage) return
+		const observer = new ResizeObserver(([e]) => setSize(e.contentRect))
+		observer.observe(stage)
+		return () => observer.disconnect()
+	}, [stage])
 
-	function tick(id: string) {
-		const next = shown.includes(id) ? shown.filter((other) => other !== id) : [...shown, id]
-		if (!next.length) return
-		setShown(next)
-		if (!next.includes(voice)) setVoice(next[0])
-	}
+	useEffect(() => {
+		const all = [...(stage?.querySelectorAll("video") ?? [])]
+		const clock = all[columns.indexOf(voice)] ?? all[0]
+		setVideos(clock ? [clock, ...all.filter((v) => v !== clock)] : [])
+	}, [stage, shown, voice])
 
 	return (
 		<Dialog open onOpenChange={(open) => open || useStore.setState({ side: null })}>
 			<DialogContent onOpenAutoFocus={(e) => e.preventDefault()} className={`${fullScreen} bg-black`}>
-				<header className="flex flex-wrap items-center gap-3 bg-popover px-4 py-2 text-sm">
-					<DialogTitle className="max-w-[40ch] truncate text-sm">{title}</DialogTitle>
-					<span className="flex flex-wrap gap-3 text-muted-foreground">
-						{items.map((item) => (
-							<label key={item.id} className="cursor-pointer whitespace-nowrap" title={item.title}>
-								<input type="checkbox" checked={shown.includes(item.id)} onChange={() => tick(item.id)} />{" "}
-								{label(item)}
-							</label>
-						))}
-					</span>
-					<label>
-						Sound:{" "}
-						<select className={select} value={voice} onChange={(e) => setVoice(e.target.value)}>
-							{columns.map((item) => (
-								<option key={item.id} value={item.id}>
-									{label(item)}
+				<header className="flex flex-wrap items-center gap-2 bg-popover px-3 py-2 text-sm">
+					<DialogTitle className="max-w-[48ch] min-w-0 truncate text-sm" title={title}>
+						{title}
+					</DialogTitle>
+					<VideoPicker groups={groups} shown={shown} onChange={setShown} />
+					<label className="flex items-center gap-1.5 text-muted-foreground">
+						Sound
+						<select className={`${select} max-w-48`} value={voice} onChange={(e) => setPick(e.target.value)}>
+							{columns.map((id) => (
+								<option key={id} value={id}>
+									{name(id)}
 								</option>
 							))}
 						</select>
@@ -58,17 +103,26 @@ function Row({ ids, title }: { ids: string[]; title: string }) {
 						Close (Esc)
 					</Button>
 				</header>
-				<div ref={setRow} className="flex min-h-0 flex-1 gap-1">
-					{columns.map((item) => (
-						<figure key={item.id} className="flex min-w-0 flex-1 flex-col">
+				<div
+					ref={setStage}
+					className="grid min-h-0 flex-1 gap-1"
+					style={{
+						gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+						gridTemplateRows: `repeat(${Math.ceil(columns.length / cols)}, minmax(0, 1fr))`,
+					}}
+				>
+					{columns.map((id) => (
+						<figure key={id} className="flex min-h-0 min-w-0 flex-col">
 							<figcaption
-								className="truncate bg-popover px-1.5 py-1 text-[13px] font-semibold"
-								title={item.title}
+								className="flex items-center gap-2 bg-popover px-2 text-[13px]"
+								style={{ height: CAPTION }}
+								title={[name(id), registry.get(id)!.caption].filter(Boolean).join(" · ")}
 							>
-								{item.title}
+								<b className="max-w-full shrink-0 truncate font-semibold">{name(id)}</b>
+								{mixed && <span className="min-w-0 truncate text-muted-foreground">{gallery.get(id)}</span>}
 							</figcaption>
 							<video
-								src={fileUrl(item.src!)}
+								src={fileUrl(registry.get(id)!.src!)}
 								loop
 								muted
 								playsInline

@@ -1,3 +1,4 @@
+import { Volume2, VolumeX } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { typing } from "./state"
@@ -37,7 +38,13 @@ export function Controls({ videos, keys }: { videos: HTMLVideoElement[]; keys?: 
 
 	useEffect(() => {
 		if (!clock) return
-		for (const v of videos) v.muted = v !== clock || muted
+		// [Agent] A column added later starts at the clock's time and plays along if the clock is playing.
+		for (const v of videos) {
+			v.muted = v !== clock || muted
+			if (v === clock) continue
+			v.currentTime = clock.currentTime
+			if (!clock.paused) v.play().catch(() => {})
+		}
 		let frame = 0
 		const show = () => {
 			if (seek.current) seek.current.value = String((clock.currentTime / duration()) * 1000)
@@ -105,20 +112,21 @@ export function Controls({ videos, keys }: { videos: HTMLVideoElement[]; keys?: 
 					</option>
 				))}
 			</select>
-			<Button title="One frame back" onClick={() => step(-1)}>
-				◀ frame
+			<Button title="One frame back (←)" onClick={() => step(-1)}>
+				◀<span className="max-sm:hidden">frame</span>
 			</Button>
-			<Button title="One frame forward" onClick={() => step(1)}>
-				frame ▶
+			<Button title="One frame forward (→)" onClick={() => step(1)}>
+				<span className="max-sm:hidden">frame</span>▶
 			</Button>
 			<Button
-				title="Sound"
+				title={muted ? "Sound off" : "Sound on"}
+				aria-label={muted ? "Turn sound on" : "Turn sound off"}
 				onClick={() => {
 					clock.muted = !clock.muted
 					setMuted(clock.muted)
 				}}
 			>
-				{muted ? "🔇" : "🔊"}
+				{muted ? <VolumeX /> : <Volume2 />}
 			</Button>
 		</div>
 	)

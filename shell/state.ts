@@ -18,7 +18,7 @@ export const thumbUrl = (src: string, probe: Probe, view = false) =>
 export const cards = () => [...document.querySelectorAll<HTMLElement>("[data-card]")].map((el) => el.id)
 export const typing = (e: Event) => ["TEXTAREA", "INPUT", "SELECT"].includes((e.target as Element).tagName)
 
-export const SectionCtx = createContext<{ id: string; title: string } | null>(null)
+export const SectionCtx = createContext<{ id: string; title: string; videos: number } | null>(null)
 
 // [Agent] What each card, section and note id is, filled while rendering: the viewer and the contents read
 // it, and every feedback write carries it, so feedback.json says which section and file a note belongs to.
@@ -30,12 +30,16 @@ export type Entry = Partial<MediaProps & SectionProps> & {
 }
 export const registry = new Map<string, Entry>()
 
+// [Agent] The side-by-side player: its videos grouped by gallery, and the ones shown as columns.
+export type Group = { title: string; ids: string[] }
+export type Side = { title: string; groups: Group[]; shown: string[] }
+
 export const useStore = create(() => ({
 	feedback: {} as Record<string, Feedback>,
 	media: {} as Record<string, Probe | null>,
 	open: {} as Record<string, boolean>,
 	viewing: null as string | null,
-	side: null as { ids: string[]; title: string } | null,
+	side: null as Side | null,
 	status: "",
 }))
 const { getState: get, setState: set } = useStore
