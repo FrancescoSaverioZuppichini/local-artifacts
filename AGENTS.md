@@ -180,7 +180,7 @@ The same names work as MDX tags and as `page.json` block types.
 |---|---|---|
 | `Section` | `id`*, `title`*, `date`, `badges`, `open`, `blocks`, children | A foldable chapter, listed in the contents, with a note box at the end (detached comments above it) and a side-by-side button when it holds 2+ videos. Its note shows under the title (one line when folded) and in the contents. `blocks` render before children. |
 | `Gallery` | `title`, `items` (list of `Media` props), children | A row of fixed-height cards. |
-| `Media` | `src`*, `id` (defaults to `src`), `title`, `caption`, `badges`, `compare` | An image or video card (by extension). Click opens the viewer; `compare` (another card's id, or a path) adds a wipe against it. |
+| `Media` | `src`*, `id` (defaults to `src`), `title`, `caption`, `badges`, `compare` | An image or video card (by extension), its W×H on the thumbnail. Click opens the viewer; `compare` (another card's id, or a path) adds a wipe against it. |
 | `Code` | `src` or `text` or children, `title` | Verbatim text folded to a few lines, with Copy. `src` is re-read when the file changes. |
 | `Badge` | children (text) | A chip. Text starting with ✅ ❌ ★ ❓ is a coloured status, also shown next to titles and in the contents; ❓ counts as "waiting" on the page list. |
 | `Note` | `id`*, `placeholder` | A note box saved under `id` (kind `note`). Use it to ask the reader something specific. |

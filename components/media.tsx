@@ -57,6 +57,7 @@ export function Media(props: MediaProps) {
 					{probe?.video && (
 						<Badge className={onThumb}>▶ {probe.dur ? `${probe.dur.toFixed(1)} s` : ""}</Badge>
 					)}
+					{probe?.w ? <Badge className={onThumb}>{`${probe.w}×${probe.h}`}</Badge> : null}
 					{compare && (
 						<Badge className={onThumb} title={`compare: ${compare}`}>
 							⇆

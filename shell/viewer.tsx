@@ -69,6 +69,7 @@ function Frame({ src, compare }: { src: string; compare?: string }) {
 export function Viewer() {
 	const id = useStore((s) => s.viewing)
 	const item = id ? registry.get(id) : undefined
+	const probe = useStore((s) => item?.src && s.media[item.src])
 	const ids = cards()
 	const index = ids.indexOf(id!)
 	const show = (next: string | null) => {
@@ -101,6 +102,7 @@ export function Viewer() {
 						{item.sectionTitle && <span className="text-muted-foreground">{item.sectionTitle} /</span>}
 						<Badges list={item.badges} status />
 						<DialogTitle className="text-sm">{item.title}</DialogTitle>
+						{probe && <span className="text-muted-foreground tabular-nums">{`${probe.w}×${probe.h}`}</span>}
 						{item.caption && (
 							<span className="min-w-0 break-words text-muted-foreground">{item.caption}</span>
 						)}

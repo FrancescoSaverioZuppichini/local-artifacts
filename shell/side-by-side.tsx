@@ -65,7 +65,12 @@ function Row({ title, groups, shown: start }: Side) {
 	const columns = groups.flatMap((g) => g.ids).filter((id) => shown.includes(id))
 	const voice = shown.includes(pick) ? pick : columns[0]
 	const mixed = new Set(columns.map((id) => gallery.get(id))).size > 1
-	const probe = useStore((s) => s.media[registry.get(columns[0])!.src!])
+	const media = useStore((s) => s.media)
+	const probe = media[registry.get(columns[0])!.src!]
+	const res = (id: string) => {
+		const p = media[registry.get(id)!.src!]
+		return p ? `${p.w}×${p.h}` : ""
+	}
 	const cols = fit(columns.length, size.width, size.height, probe ? probe.w / probe.h : 9 / 16)
 
 	useEffect(() => {
@@ -119,6 +124,7 @@ function Row({ title, groups, shown: start }: Side) {
 								title={[name(id), registry.get(id)!.caption].filter(Boolean).join(" · ")}
 							>
 								<b className="max-w-full shrink-0 truncate font-semibold">{name(id)}</b>
+								<span className="shrink-0 text-muted-foreground tabular-nums">{res(id)}</span>
 								{mixed && <span className="min-w-0 truncate text-muted-foreground">{gallery.get(id)}</span>}
 							</figcaption>
 							<video
