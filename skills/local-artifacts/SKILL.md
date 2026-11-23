@@ -148,7 +148,14 @@ several cards. A path with spaces or `&`, `#` must be URL-encoded; the `links` a
   can untick columns and pick whose sound plays. Put the baseline video first.
 - Put a verdict in titles and captions (`✅ kept`, `⚠ partial`, `❌ face drifts`) and say why in the caption. A
   failed result stays on the page with ❌; never hide one.
-- Put the time on every card as a badge (`⏱ 44 s`).
+- Put the generation time on every result card as a badge (`⏱ 44 s`) **the moment its file lands**: a result with
+  no ⏱ reads as unfinished. When several jobs run in a batch, wake up after each job, not at the end of the batch.
+- Next to the ⏱, give the change against the baseline card and name it (`−21.6 % vs base`), never against the
+  previous arm. Put arm-to-arm deltas in the caption.
+- When more than one machine renders, say which on every card (`GPU 3090`) and in the gallery title: times from
+  two machines are not comparable.
+- When the outputs are made from a source (a clip, a photo), make the source the first card of the gallery.
+- The cards show each file's resolution by themselves; don't type it into titles.
 
 ## Read the feedback
 
