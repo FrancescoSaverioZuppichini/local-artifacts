@@ -63,7 +63,7 @@ The components:
 - **`Gallery`** takes `title` and holds `Media` children, shown as a row of fixed-height cards.
 - **`Media`** takes `src`\*, `id` (defaults to `src`), `title`, `caption`, `badges` and `compare`. It shows an
   image or a video, picked by the file extension. A click opens the full-screen viewer: ←/→ move through every
-  card, each card has 👍/👎 and a note, and an image without `compare` zooms to 100 %. `compare` takes another
+  card, each card has 👍/👎 and a note, and every card zooms and pans, videos and wipes too. `compare` takes another
   card's id, or a path, and adds a wipe against it.
 - **`Code`** takes `src="file.txt"` (re-read when the file changes) or ``text={`…`}``. It shows verbatim text
   folded to a few lines, with a Copy button. Use it for prompts, settings and logs.

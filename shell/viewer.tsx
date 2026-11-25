@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { type PointerEvent, useEffect, useState } from "react"
 import { Badges } from "@/components/badge"
 import { Note } from "@/components/note"
 import { Button } from "@/components/ui/button"
@@ -7,23 +7,60 @@ import type { Probe } from "@/types"
 import { Controls, fullScreen } from "./player"
 import { cards, fileUrl, flush, registry, thumbUrl, typing, useStore } from "./state"
 import { Votes } from "./votes"
-import { Zoom } from "./zoom"
+import { HOME, Zoom } from "./zoom"
 
 const STEPS: Record<string, number> = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }
 const label = "absolute top-2 rounded bg-black/70 px-1.5 text-[11px] font-semibold"
 
-function Asset({ src, probe, className }: { src: string; probe: Probe; className: string }) {
-	if (!probe.video) return <img src={thumbUrl(src, probe, true)} className={className} alt="" />
-	return <video src={fileUrl(src)} className={className} muted loop playsInline autoPlay preload="auto" />
+// [Agent] A still shows its 1600 px viewer thumbnail while it fits; once it overflows, the original loads on top.
+function Asset({ src, probe, big }: { src: string; probe: Probe; big: boolean }) {
+	const className = "absolute inset-0 size-full bg-black object-contain"
+	if (probe.video)
+		return <video src={fileUrl(src)} className={className} muted loop playsInline autoPlay preload="auto" />
+	return (
+		<>
+			<img src={thumbUrl(src, probe, true)} className={className} alt="" />
+			{big && <img src={fileUrl(src)} className={className} alt="" />}
+		</>
+	)
 }
 
-// [Agent] One card full screen. With `compare` the reference sits on top, clipped by a wipe, and both videos
+// [Agent] The reference on top of the card, clipped to the left of the wipe. The line is a handle that keeps its
+// screen width at any zoom (24 px to grab, 2 px to see), so a drag anywhere else still pans.
+function Wipe({ src, probe, s, big }: { src: string; probe: Probe; s: number; big: boolean }) {
+	const [split, setSplit] = useState(50)
+	const drag = (e: PointerEvent<HTMLElement>) => {
+		if (!e.currentTarget.hasPointerCapture(e.pointerId)) return
+		const r = e.currentTarget.parentElement!.getBoundingClientRect()
+		setSplit(Math.max(0, Math.min(100, ((e.clientX - r.left) / r.width) * 100)))
+	}
+	return (
+		<>
+			<div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}>
+				<Asset src={src} probe={probe} big={big} />
+			</div>
+			<span
+				className="pointer-events-auto absolute inset-y-0 grid -translate-x-1/2 cursor-ew-resize justify-center"
+				style={{ left: `${split}%`, width: 24 / s }}
+				onPointerDown={(e) => {
+					e.stopPropagation()
+					e.currentTarget.setPointerCapture(e.pointerId)
+				}}
+				onPointerMove={drag}
+			>
+				<i className="h-full bg-white/80" style={{ width: 2 / s }} />
+			</span>
+		</>
+	)
+}
+
+// [Agent] One card full screen, zoomable. With `compare` the reference sits on top behind a wipe, and both videos
 // share one clock.
 function Frame({ src, compare }: { src: string; compare?: string }) {
 	// [Agent] The dialog portal mounts its content a render late, so the box is kept in state, not a ref.
 	const [box, setBox] = useState<HTMLDivElement | null>(null)
 	const [videos, setVideos] = useState<HTMLVideoElement[]>([])
-	const [split, setSplit] = useState(50)
+	const [view, setView] = useState(HOME)
 	const refSrc = compare && (registry.get(compare)?.src || compare)
 	const probe = useStore((s) => s.media[src])
 	const refProbe = useStore((s) => refSrc && s.media[refSrc])
@@ -34,32 +71,23 @@ function Frame({ src, compare }: { src: string; compare?: string }) {
 		return (
 			<div className="grid h-full place-items-center text-muted-foreground">⏳ not there yet · {src}</div>
 		)
-	if (!probe.video && !refSrc) return <Zoom src={src} probe={probe} />
-	const fit = { aspectRatio: `${probe.w} / ${probe.h}`, width: `min(100cqw, 100cqh * ${probe.w / probe.h})` }
 	return (
 		<div className="flex h-full flex-col">
-			<div className="grid min-h-0 flex-1 place-items-center p-2 [container-type:size]">
-				<div ref={setBox} className="relative" style={fit}>
-					<Asset src={src} probe={probe} className="absolute inset-0 size-full object-contain" />
-					{refSrc && refProbe && (
+			<div ref={setBox} className="relative min-h-0 flex-1">
+				<Zoom w={probe.w} h={probe.h} view={view} onView={setView} still={!probe.video} keys>
+					{({ s, big }) => (
 						<>
-							<div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}>
-								<Asset src={refSrc} probe={refProbe} className="size-full bg-black object-contain" />
-							</div>
-							<i className="absolute inset-y-0 w-0.5 bg-white/80" style={{ left: `${split}%` }} />
-							<input
-								type="range"
-								value={split}
-								aria-label="Compare"
-								onChange={(e) => setSplit(Number(e.target.value))}
-								onPointerUp={(e) => e.currentTarget.blur()}
-								className="absolute inset-0 m-0 size-full cursor-ew-resize opacity-0"
-							/>
-							<span className={`${label} left-2`}>Reference</span>
-							<span className={`${label} right-2`}>This card</span>
+							<Asset src={src} probe={probe} big={big} />
+							{refSrc && refProbe && <Wipe src={refSrc} probe={refProbe} s={s} big={big} />}
 						</>
 					)}
-				</div>
+				</Zoom>
+				{refSrc && refProbe && (
+					<>
+						<span className={`${label} left-2`}>Reference</span>
+						<span className={`${label} right-2`}>This card</span>
+					</>
+				)}
 			</div>
 			<Controls videos={videos} />
 		</div>

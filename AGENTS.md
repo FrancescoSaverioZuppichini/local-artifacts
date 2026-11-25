@@ -10,7 +10,7 @@ with a compare wipe, a synced side-by-side player, and 👍/👎, notes and text
 server.ts          Bun server: ?path= pages, MDX compile, media probes, thumbnails, Range video, feedback, /api/check
 app.tsx            client entry: one page, or the list of pages
 shell/             around the content: layout + polling (page.tsx), sidebar + links (toc.tsx), viewer.tsx and
-                   its image zoom (zoom.tsx), side-by-side.tsx, the shared video clock (player.tsx), text comments
+                   the zoom stage for every card and column (zoom.tsx), side-by-side.tsx, the shared video clock (player.tsx), text comments
                    (comments.tsx, anchor.ts), the one note look (comment.tsx), dates (time.tsx), the zustand store and
                    URLs (state.ts)
 components/        what a page can use, one per file, registered in components/index.ts
@@ -115,11 +115,12 @@ curl -s "127.0.0.1:8800/api/check?path=$PWD/my-run"
 cards · `&section=<id>` works like `#<id>` · `/` lists the pages opened so far with their ❓ count and notes. Encode
 spaces, `&` and `#` in the path; the `url` and `links` from `/api/check` already are.
 
-**Keys:** viewer: ←/→ every card on the page, Ctrl/⌘+Enter saves the note and moves on, Esc closes. An image with no
-`compare` zooms: Ctrl/⌘+wheel or pinch at the cursor, `+`/`-`, double-click toggles fit and 100 %; wheel or drag pans;
-`0` or Esc goes back to the opening view. A strip over 3:1 opens at its width (or height), at most 100 %, from the top.
-While the image overflows, a minimap shows where you are: click or drag in it. Side by side (▶ on a section with 2+
-videos): one clock for all columns, untick columns, pick the sound, ←/→ one frame, space plays.
+**Keys:** viewer: ←/→ every card on the page, Ctrl/⌘+Enter saves the note and moves on, Esc closes. Every card zooms,
+images and videos, with or without `compare`: Ctrl/⌘+wheel or pinch at the cursor, `+`/`-`, double-click toggles fit
+and 100 %; wheel or drag pans; `0` or Esc goes back to the opening view. A strip over 3:1 opens at its width (or
+height), at most 100 %, from the top. While it overflows, a minimap (a live frame for videos) shows where you are: click
+or drag in it. The compare wipe is the white line: drag it. Side by side (▶ on a section with 2+ videos): one clock and
+one zoom for all columns, untick columns, pick the sound, ←/→ one frame, space plays.
 
 **Rules**
 

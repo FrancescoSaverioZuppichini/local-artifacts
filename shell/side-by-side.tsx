@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Controls, fullScreen, select } from "./player"
 import { fileUrl, type Group, registry, type Side, useStore } from "./state"
 import { MAX, name, VideoPicker } from "./video-picker"
+import { HOME, Zoom } from "./zoom"
 
 const START = 4
 const CAPTION = 26
@@ -52,8 +53,9 @@ function fit(n: number, width: number, height: number, ratio: number) {
 	return best
 }
 
-// [Agent] The picked videos on one clock, so versions of the same clip can be audited frame against frame.
-// Columns keep page order, so the baseline stays first; the sound pick decides the clock.
+// [Agent] The picked videos on one clock and one zoom, so versions of the same clip can be audited frame against
+// frame and detail against detail. Columns keep page order, so the baseline stays first; the sound pick decides
+// the clock.
 function Row({ title, groups, shown: start }: Side) {
 	const [shown, setShown] = useState(start)
 	const [pick, setPick] = useState(start[0])
@@ -61,14 +63,16 @@ function Row({ title, groups, shown: start }: Side) {
 	// [Agent] The dialog portal mounts its content a render late, so the stage is kept in state, not a ref.
 	const [stage, setStage] = useState<HTMLDivElement | null>(null)
 	const [size, setSize] = useState({ width: 1, height: 1 })
+	const [view, setView] = useState(HOME)
 	const gallery = new Map(groups.flatMap((g) => g.ids.map((id) => [id, g.title])))
 	const columns = groups.flatMap((g) => g.ids).filter((id) => shown.includes(id))
 	const voice = shown.includes(pick) ? pick : columns[0]
 	const mixed = new Set(columns.map((id) => gallery.get(id))).size > 1
 	const media = useStore((s) => s.media)
-	const probe = media[registry.get(columns[0])!.src!]
+	const probeOf = (id: string) => media[registry.get(id)!.src!]
+	const probe = probeOf(columns[0])
 	const res = (id: string) => {
-		const p = media[registry.get(id)!.src!]
+		const p = probeOf(id)
 		return p ? `${p.w}×${p.h}` : ""
 	}
 	const cols = fit(columns.length, size.width, size.height, probe ? probe.w / probe.h : 9 / 16)
@@ -84,7 +88,7 @@ function Row({ title, groups, shown: start }: Side) {
 		const all = [...(stage?.querySelectorAll("video") ?? [])]
 		const clock = all[columns.indexOf(voice)] ?? all[0]
 		setVideos(clock ? [clock, ...all.filter((v) => v !== clock)] : [])
-	}, [stage, shown, voice])
+	}, [stage, shown, voice, !!probe])
 
 	return (
 		<Dialog open onOpenChange={(open) => open || useStore.setState({ side: null })}>
@@ -116,27 +120,40 @@ function Row({ title, groups, shown: start }: Side) {
 						gridTemplateRows: `repeat(${Math.ceil(columns.length / cols)}, minmax(0, 1fr))`,
 					}}
 				>
-					{columns.map((id) => (
-						<figure key={id} className="flex min-h-0 min-w-0 flex-col">
-							<figcaption
-								className="flex items-center gap-2 bg-popover px-2 text-[13px]"
-								style={{ height: CAPTION }}
-								title={[name(id), registry.get(id)!.caption].filter(Boolean).join(" · ")}
-							>
-								<b className="max-w-full shrink-0 truncate font-semibold">{name(id)}</b>
-								<span className="shrink-0 text-muted-foreground tabular-nums">{res(id)}</span>
-								{mixed && <span className="min-w-0 truncate text-muted-foreground">{gallery.get(id)}</span>}
-							</figcaption>
-							<video
-								src={fileUrl(registry.get(id)!.src!)}
-								loop
-								muted
-								playsInline
-								preload="auto"
-								className="min-h-0 w-full flex-1 bg-black object-contain"
-							/>
-						</figure>
-					))}
+					{columns.map((id, i) => {
+						const p = probeOf(id)
+						return (
+							<figure key={id} className="flex min-h-0 min-w-0 flex-col">
+								<figcaption
+									className="flex items-center gap-2 bg-popover px-2 text-[13px]"
+									style={{ height: CAPTION }}
+									title={[name(id), registry.get(id)!.caption].filter(Boolean).join(" · ")}
+								>
+									<b className="max-w-full shrink-0 truncate font-semibold">{name(id)}</b>
+									<span className="shrink-0 text-muted-foreground tabular-nums">{res(id)}</span>
+									{mixed && <span className="min-w-0 truncate text-muted-foreground">{gallery.get(id)}</span>}
+								</figcaption>
+								<div className="min-h-0 flex-1">
+									{p ? (
+										<Zoom w={p.w} h={p.h} view={view} onView={setView} keys={i === 0}>
+											{() => (
+												<video
+													src={fileUrl(registry.get(id)!.src!)}
+													loop
+													muted
+													playsInline
+													preload="auto"
+													className="size-full bg-black object-contain"
+												/>
+											)}
+										</Zoom>
+									) : (
+										<div className="grid h-full place-items-center text-muted-foreground">⏳</div>
+									)}
+								</div>
+							</figure>
+						)
+					})}
 				</div>
 				<Controls videos={videos} keys />
 			</DialogContent>
