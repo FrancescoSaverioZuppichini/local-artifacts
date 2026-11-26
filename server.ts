@@ -100,9 +100,14 @@ async function parseFile<T>(file: string, parse: (raw: string) => T | Promise<T>
 }
 
 type Meta = { title?: string; description?: string; order?: string }
-async function compileMdx(raw: string) {
+function readMeta(raw: string): Meta {
 	const yaml = /^---\n([\s\S]*?)\n---/.exec(raw)?.[1]
-	const meta: Meta = (yaml && Bun.YAML.parse(yaml)) || {}
+	return (yaml && Bun.YAML.parse(yaml)) || {}
+}
+const readJson = (raw: string): PageJson => (raw ? JSON.parse(raw) : {})
+
+async function compileMdx(raw: string) {
+	const meta = readMeta(raw)
 	const plugins = { remarkPlugins: [remarkFrontmatter, remarkGfm], rehypePlugins: [rehypeSlug] }
 	const code = await compile(raw, { outputFormat: "function-body", ...plugins }).catch((e) => {
 		throw Error(`${e.line}:${e.column} ${e.reason}`)
@@ -152,7 +157,7 @@ function scanRefs(raw: string, data: PageJson) {
 async function build(file: string) {
 	const dir = dirname(file)
 	const mdx = await parseFile(file, compileMdx, { code: "", meta: {} as Meta })
-	const data = await parseFile<PageJson>(join(dir, "page.json"), (raw) => (raw ? JSON.parse(raw) : {}), {})
+	const data = await parseFile(join(dir, "page.json"), readJson, {})
 	const found = scanRefs(mdx.raw, data.value)
 	const probed = await Promise.all(found.files.map((src) => probe(resolve(dir, src))))
 	const media = Object.fromEntries(found.files.map((src, i) => [src, probed[i] || null]))
@@ -256,23 +261,28 @@ Bun.serve({
 			const rest = new URL(request.url).search.replace("?", "&")
 			return file ? Response.redirect(`${pageUrl(file)}${rest}`, 302) : missing(`page ${request.params.name}`)
 		}),
+		// [Agent] The list reads only frontmatter, page.json and feedback.json. Building every page compiled all
+		// the MDX and ffprobed every media file of every page: 8 s after each restart, for a title and two counts.
 		"/api/pages": local(async (request) => {
 			const list = await Promise.all(
 				Object.values(recent)
 					.filter(existsSync)
 					.map(async (file) => {
 						const dir = dirname(file)
-						const p = await build(file).catch(() => null)
+						const raw = readFileSync(file, "utf8")
+						const data = await parseFile(join(dir, "page.json"), readJson, {})
+						// [Agent] Broken YAML falls back to the folder name here; the page banner shows the error.
+						const meta: Meta = await Promise.try(readMeta, raw).catch(() => ({}))
 						return {
 							path: file,
-							title: p?.meta.title ?? basename(dir),
-							description: p?.meta.description ?? "",
+							title: meta.title ?? basename(dir),
+							description: meta.description ?? "",
 							updated: Math.max(
 								...[file, join(dir, "page.json")].map(
 									(f) => statSync(f, { throwIfNoEntry: false })?.mtimeMs ?? 0,
 								),
 							),
-							waiting: p?.found.waiting ?? 0,
+							waiting: scanRefs(raw, data.value).waiting,
 							notes: Object.values(readFeedback(dir)).filter((r) => r.note?.trim()).length,
 						}
 					}),
