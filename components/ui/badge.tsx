@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
 	[
-		"inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border",
-		"border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap [&>svg]:size-3",
+		"inline-flex w-fit max-w-full shrink items-center justify-center gap-1 overflow-hidden rounded-xl border",
+		"border-transparent px-2 py-0.5 text-xs font-medium leading-snug whitespace-normal break-words [&>svg]:size-3",
 	],
 	{
 		variants: {

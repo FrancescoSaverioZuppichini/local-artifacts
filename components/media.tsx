@@ -15,7 +15,7 @@ const card = cn(
 	"w-[max(11rem,min(100%,calc(var(--card-h)*var(--ar,0.75))))]",
 	"data-picked:outline-3 data-picked:outline-offset-2 data-picked:outline-amber-400",
 )
-const onThumb = "border-0 bg-black/70 text-foreground"
+const onThumb = "border-0 bg-black/70 text-foreground whitespace-nowrap shrink-0"
 
 // [Agent] A poster-only card: the grid never loads a video, it plays in the viewer. A file that is not there
 // yet is a ⏳ card that fills in by itself.
@@ -53,7 +53,7 @@ export function Media(props: MediaProps) {
 						<span className="text-[11px] break-all">{src}</span>
 					</span>
 				)}
-				<div className="absolute top-1.5 left-1.5 flex gap-1">
+				<div className="absolute top-1.5 right-1.5 left-1.5 flex flex-wrap gap-1">
 					{probe?.video && (
 						<Badge className={onThumb}>▶ {probe.dur ? `${probe.dur.toFixed(1)} s` : ""}</Badge>
 					)}
@@ -83,7 +83,7 @@ export function Media(props: MediaProps) {
 					</div>
 				)}
 				{badges?.some((text) => !tone(text)) && (
-					<div className="flex flex-wrap gap-1">
+					<div className="flex min-w-0 flex-wrap gap-1">
 						<Badges list={badges} status={false} />
 					</div>
 				)}

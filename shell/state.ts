@@ -13,7 +13,7 @@ export const picks = new Set(new URLSearchParams(location.search).get("pick")?.s
 export const fileUrl = (src: string) =>
 	/^https?:/.test(src) ? src : `/f?${query}&src=${encodeURIComponent(src)}`
 export const thumbUrl = (src: string, probe: Probe, view = false) =>
-	`/t?${query}&src=${encodeURIComponent(src)}&v=${probe.v}${view ? "&s=view" : ""}`
+	`/t?${query}&src=${encodeURIComponent(src)}&v=${probe.v}-f0${view ? "&s=view" : ""}`
 
 export const cards = () => [...document.querySelectorAll<HTMLElement>("[data-card]")].map((el) => el.id)
 export const typing = (e: Event) => ["TEXTAREA", "INPUT", "SELECT"].includes((e.target as Element).tagName)

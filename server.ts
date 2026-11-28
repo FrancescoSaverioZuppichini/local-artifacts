@@ -220,16 +220,15 @@ const thumbs = new Map<string, Promise<string>>()
 async function getThumb(dir: string, file: string, view: boolean) {
 	const p = await probe(file)
 	if (!p) throw Error("not ready")
-	const out = join(dir, ".review-cache", `${Bun.hash(`${file}|${p.v}|${view}`).toString(36)}.jpg`)
+	const out = join(dir, ".review-cache", `${Bun.hash(`${file}|${p.v}|${view}|f0`).toString(36)}.jpg`)
 	if (existsSync(out)) return out
 	const scale = view
 		? "scale='if(gt(iw,ih),min(1600,iw),-2)':'if(gt(iw,ih),-2,min(1600,ih))'"
 		: "scale=-2:'min(480,ih)'"
-	// [Agent] Only videos get a seek: "-ss 0" before a still JPEG makes ffmpeg write an empty file and exit 0.
-	const seek = p.video ? ["-ss", String(Math.min(1, (p.dur ?? 0) / 3))] : []
+	// [Agent] Always take frame 0 (first frame) for videos and images — never seek into the clip.
 	const make = async () => {
 		await mkdir(dirname(out), { recursive: true })
-		await $`ffmpeg -v error -y ${seek} -i ${file} -frames:v 1 -vf ${scale} -q:v 4 -f mjpeg ${out}.tmp`.quiet()
+		await $`ffmpeg -v error -y -i ${file} -frames:v 1 -vf ${scale} -q:v 4 -f mjpeg ${out}.tmp`.quiet()
 		renameSync(`${out}.tmp`, out)
 		return out
 	}
